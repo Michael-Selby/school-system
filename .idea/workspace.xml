@@ -47,10 +47,14 @@
   "keyToString": {
     "Gradle.Build school-system.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "Spring Boot.SchoolSystemApplication.executor": "Run",
+    "Spring Boot.SchoolSystemApplication.executor": "Debug",
     "git-widget-placeholder": "initial-setup",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
@@ -92,7 +96,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1770667428071</updated>
-      <workItem from="1770667429963" duration="8091000" />
+      <workItem from="1770667429963" duration="18735000" />
     </task>
     <servers />
   </component>
