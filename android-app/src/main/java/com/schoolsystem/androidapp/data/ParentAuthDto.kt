@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 
 @Serializable
-jdata class ParentLoginRequest(
+data class ParentLoginRequest(
     val parentEmail: String,
     val password: String,
     @Serializable(with = UUIDSerializer::class)

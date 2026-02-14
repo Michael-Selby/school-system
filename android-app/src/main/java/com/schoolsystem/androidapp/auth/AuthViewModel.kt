@@ -11,6 +11,8 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,7 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val response: ParentLoginResponse = client.post("$backendBaseUrl/api/auth/login") {
+                    contentType(ContentType.Application.Json)
                     setBody(request)
                 }.body()
                 _uiState.update { it.copy(isLoading = false, loginResult = response, session = response) }
@@ -50,6 +53,7 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true, error = null, signupSuccess = false) }
             try {
                 client.post("$backendBaseUrl/api/auth/signup") {
+                    contentType(ContentType.Application.Json)
                     setBody(request)
                 }
                 _uiState.update { it.copy(isLoading = false, signupSuccess = true) }
