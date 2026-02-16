@@ -20,6 +20,9 @@ data class Student(
     @Column(unique = true)
     var email: String,
 
+    @Column(unique = true)
+    var indexNumber: String? = null,
+
     var grade: String,
 
     var parentName: String,

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface StudentRepository : JpaRepository<Student, UUID>
-{
+interface StudentRepository : JpaRepository<Student, UUID> {
     fun findByParentEmail(parentEmail: String): List<Student>
+    fun findByIndexNumber(indexNumber: String): Student?
 }
