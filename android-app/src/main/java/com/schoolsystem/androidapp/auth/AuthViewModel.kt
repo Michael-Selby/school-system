@@ -2,6 +2,7 @@ package com.schoolsystem.androidapp.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.schoolsystem.androidapp.BuildConfig
 import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentLoginResponse
 import com.schoolsystem.androidapp.data.ParentSignupRequest
@@ -21,7 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
-private const val backendBaseUrl = "http://10.0.2.2:9080"
+private val backendBaseUrl: String = BuildConfig.BACKEND_BASE_URL
 
 class AuthViewModel : ViewModel() {
     private val client = HttpClient(Android) {
