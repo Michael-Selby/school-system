@@ -2,9 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/school-system.iml" filepath="$PROJECT_DIR$/.idea/school-system.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/android-app/school-system.android-app.iml" filepath="$PROJECT_DIR$/.idea/modules/android-app/school-system.android-app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/backend/school-system.backend.iml" filepath="$PROJECT_DIR$/.idea/modules/backend/school-system.backend.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/backend/school-system.backend.main.iml" filepath="$PROJECT_DIR$/.idea/modules/backend/school-system.backend.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/backend/school-system.backend.test.iml" filepath="$PROJECT_DIR$/.idea/modules/backend/school-system.backend.test.iml" />
     </modules>

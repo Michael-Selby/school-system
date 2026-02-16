@@ -18,7 +18,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,7 +115,7 @@ private fun LoginScreen(
             singleLine = true,
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors()
+            colors = OutlinedTextFieldDefaults.colors()
         )
         OutlinedTextField(
             value = password,
@@ -123,7 +123,7 @@ private fun LoginScreen(
             singleLine = true,
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors()
+            colors = OutlinedTextFieldDefaults.colors()
         )
         OutlinedTextField(
             value = studentId,
@@ -131,7 +131,7 @@ private fun LoginScreen(
             singleLine = true,
             label = { Text("Student ID") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors()
+            colors = OutlinedTextFieldDefaults.colors()
         )
         inputError.value?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
@@ -180,7 +180,7 @@ private fun SignupScreen(
         TextFieldOutline(label = "Full Name", value = fullName) { fullName = it }
         TextFieldOutline(label = "Email", value = email) { email = it }
         TextFieldOutline(label = "Phone", value = phone) { phone = it }
-        TextFieldOutline(label = "Password", value = password, password = true) { password = it }
+        TextFieldOutline(label = "Password", value = password) { password = it }
         Button(
             onClick = {
                 onSignup(ParentSignupRequest(fullName = fullName.trim(), email = email.trim(), phone = phone.trim(), password = password))
@@ -205,7 +205,6 @@ private fun SignupScreen(
 private fun TextFieldOutline(
     label: String,
     value: String,
-    password: Boolean = false,
     onValueChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -214,7 +213,7 @@ private fun TextFieldOutline(
         singleLine = true,
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
-        colors = TextFieldDefaults.outlinedTextFieldColors()
+        colors = OutlinedTextFieldDefaults.colors()
     )
 }
 

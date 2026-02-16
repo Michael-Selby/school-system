@@ -2,6 +2,7 @@ package com.schoolsystem.androidapp.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.schoolsystem.androidapp.BuildConfig
 import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentLoginResponse
 import com.schoolsystem.androidapp.data.ParentSignupRequest
@@ -11,6 +12,8 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
-private const val backendBaseUrl = "http://10.0.2.2:9080"
+private val backendBaseUrl: String = BuildConfig.BACKEND_BASE_URL
 
 class AuthViewModel : ViewModel() {
     private val client = HttpClient(Android) {
@@ -36,6 +39,7 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val response: ParentLoginResponse = client.post("$backendBaseUrl/api/auth/login") {
+                    contentType(ContentType.Application.Json)
                     setBody(request)
                 }.body()
                 _uiState.update { it.copy(isLoading = false, loginResult = response, session = response) }
@@ -50,6 +54,7 @@ class AuthViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true, error = null, signupSuccess = false) }
             try {
                 client.post("$backendBaseUrl/api/auth/signup") {
+                    contentType(ContentType.Application.Json)
                     setBody(request)
                 }
                 _uiState.update { it.copy(isLoading = false, signupSuccess = true) }
