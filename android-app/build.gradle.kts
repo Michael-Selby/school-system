@@ -14,10 +14,13 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "BACKEND_BASE_URL", "\"http://192.168.100.5:9080\"")
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
