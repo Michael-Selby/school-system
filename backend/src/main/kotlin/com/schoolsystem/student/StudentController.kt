@@ -1,5 +1,6 @@
 package com.schoolsystem.student
 
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -19,6 +20,23 @@ class StudentController(private val service: StudentService) {
                 enrollmentDate = it.enrollmentDate
             )
         }
+
+    @GetMapping("/students/by-index")
+    fun studentByIndex(
+        @RequestParam indexNumber: String,
+        @RequestParam parentEmail: String
+    ): ResponseEntity<StudentProfileResponse> {
+        val student = service.findByIndexNumberForParent(indexNumber, parentEmail)
+            ?: return ResponseEntity.notFound().build()
+        val response = StudentProfileResponse(
+            id = student.id,
+            fullName = "${student.firstName} ${student.lastName}",
+            grade = student.grade,
+            status = student.status,
+            enrollmentDate = student.enrollmentDate
+        )
+        return ResponseEntity.ok(response)
+    }
 }
 
 data class StudentProfileResponse(
