@@ -9,16 +9,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,7 +38,7 @@ import com.schoolsystem.androidapp.auth.AuthUiState
 import com.schoolsystem.androidapp.auth.AuthViewModel
 import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentSignupRequest
-import java.util.UUID
+import com.schoolsystem.androidapp.data.StudentProfileResponse
 
 private object AuthDestinations {
     const val Login = "login"
@@ -50,7 +51,7 @@ fun ParentApp(authViewModel: AuthViewModel) {
     val navController = rememberNavController()
     val uiState by authViewModel.uiState.collectAsState()
 
-    LaunchedEffect(uiState.loginResult?.studentId) {
+    LaunchedEffect(uiState.loginResult?.parentId) {
         if (uiState.loginResult != null) {
             navController.navigate(AuthDestinations.Dashboard) {
                 popUpTo(AuthDestinations.Login) { inclusive = true }
@@ -78,11 +79,14 @@ fun ParentApp(authViewModel: AuthViewModel) {
         }
         composable(AuthDestinations.Dashboard) {
             DashboardScreen(
-                loginResult = uiState.loginResult,
+                uiState = uiState,
+                onLookupChild = authViewModel::lookupChildByIndex,
+                onClearChild = authViewModel::clearChildProfile,
                 onLogout = {
                     navController.navigate(AuthDestinations.Login) {
                         popUpTo(AuthDestinations.Dashboard) { inclusive = true }
                     }
+                    authViewModel.logout()
                 }
             )
         }
@@ -98,8 +102,6 @@ private fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var studentId by remember { mutableStateOf("") }
-    val inputError = remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -125,24 +127,9 @@ private fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors()
         )
-        OutlinedTextField(
-            value = studentId,
-            onValueChange = { studentId = it },
-            singleLine = true,
-            label = { Text("Student ID") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors()
-        )
-        inputError.value?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = {
-                val uuid = runCatching { UUID.fromString(studentId) }.getOrNull()
-                if (uuid == null) {
-                    inputError.value = "Enter a valid UUID for the Student ID"
-                    return@Button
-                }
-                inputError.value = null
-                onLogin(ParentLoginRequest(parentEmail = email.trim(), password = password, studentId = uuid))
+                onLogin(ParentLoginRequest(parentEmail = email.trim(), password = password))
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -219,10 +206,15 @@ private fun TextFieldOutline(
 
 @Composable
 private fun DashboardScreen(
-    loginResult: com.schoolsystem.androidapp.data.ParentLoginResponse?,
+    uiState: AuthUiState,
+    onLookupChild: (String) -> Unit,
+    onClearChild: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showLookupDialog by remember { mutableStateOf(false) }
+    var indexInput by remember { mutableStateOf("") }
+
     Card(
         modifier = modifier
             .padding(24.dp)
@@ -230,16 +222,78 @@ private fun DashboardScreen(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Dashboard", style = MaterialTheme.typography.headlineSmall)
-            loginResult?.let {
-                Text("Logged in as: ${it.parentEmail}")
-                Text("Student: ${it.studentName}")
+            uiState.session?.let {
+                Text("Logged in as: ${it.parentName}")
+                Text(it.parentEmail)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            uiState.childProfile?.let {
+                ChildProfileCard(it)
+            }
+            uiState.childLookupError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            if (uiState.isChildLookupLoading) {
+                Text("Fetching child profile...", style = MaterialTheme.typography.bodySmall)
+            }
+            Button(onClick = {
+                showLookupDialog = true
+                indexInput = ""
+                onClearChild()
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text("View child profile")
+            }
             Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
                 Text("Log out")
             }
+        }
+    }
+
+    if (showLookupDialog) {
+        AlertDialog(
+            onDismissRequest = { showLookupDialog = false },
+            title = { Text("Child index number") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Enter the customized index number assigned to your child.")
+                    OutlinedTextField(
+                        value = indexInput,
+                        onValueChange = { indexInput = it },
+                        singleLine = true,
+                        label = { Text("Index number") }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    onLookupChild(indexInput.trim())
+                    showLookupDialog = false
+                }, enabled = indexInput.isNotBlank()) {
+                    Text("Lookup")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLookupDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ChildProfileCard(profile: StudentProfileResponse) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(profile.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Grade: ${profile.grade}")
+            Text("Status: ${profile.status}")
+            Text("Enrolled: ${profile.enrollmentDate}")
         }
     }
 }
