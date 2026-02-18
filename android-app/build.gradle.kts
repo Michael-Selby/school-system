@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("plugin.serialization")
 }
+
+// Load backend.baseUrl from root local.properties if present; fallback to previous default
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val backendBaseUrlProp = localProps.getProperty("backend.baseUrl") ?: "http://192.168.100.5:9080"
 
 android {
     namespace = "com.schoolsystem.androidapp"
@@ -15,7 +24,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "BACKEND_BASE_URL", "\"http://192.168.100.5:9080\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"${backendBaseUrlProp}\"")
     }
 
     buildFeatures {
