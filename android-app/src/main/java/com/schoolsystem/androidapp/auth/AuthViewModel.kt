@@ -6,10 +6,13 @@ import com.schoolsystem.androidapp.BuildConfig
 import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentLoginResponse
 import com.schoolsystem.androidapp.data.ParentSignupRequest
+import com.schoolsystem.androidapp.data.StudentProfileResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -42,7 +45,14 @@ class AuthViewModel : ViewModel() {
                     contentType(ContentType.Application.Json)
                     setBody(request)
                 }.body()
-                _uiState.update { it.copy(isLoading = false, loginResult = response, session = response) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        loginResult = response,
+                        session = response,
+                        childLookupError = null
+                    )
+                }
             } catch (cause: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = cause.message ?: "Login failed") }
             }
@@ -69,7 +79,43 @@ class AuthViewModel : ViewModel() {
     }
 
     fun logout() {
-        _uiState.update { it.copy(session = null, loginResult = null) }
+        _uiState.update {
+            it.copy(
+                session = null,
+                loginResult = null,
+                childProfile = null,
+                childLookupError = null
+            )
+        }
+    }
+
+    fun lookupChildByIndex(indexNumber: String) {
+        val currentSession = _uiState.value.session
+        if (currentSession == null) {
+            _uiState.update { it.copy(childLookupError = "You must be logged in to lookup a child") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isChildLookupLoading = true, childLookupError = null) }
+            try {
+                val response: StudentProfileResponse = client.get("$backendBaseUrl/api/parents/students/by-index") {
+                    parameter("indexNumber", indexNumber)
+                    parameter("parentEmail", currentSession.parentEmail)
+                }.body()
+                _uiState.update { it.copy(isChildLookupLoading = false, childProfile = response) }
+            } catch (cause: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isChildLookupLoading = false,
+                        childLookupError = cause.message ?: "Unable to find child profile"
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearChildProfile() {
+        _uiState.update { it.copy(childProfile = null, childLookupError = null) }
     }
 
     override fun onCleared() {
@@ -83,5 +129,8 @@ data class AuthUiState(
     val error: String? = null,
     val loginResult: ParentLoginResponse? = null,
     val signupSuccess: Boolean = false,
-    val session: ParentLoginResponse? = null
+    val session: ParentLoginResponse? = null,
+    val isChildLookupLoading: Boolean = false,
+    val childProfile: StudentProfileResponse? = null,
+    val childLookupError: String? = null
 )
