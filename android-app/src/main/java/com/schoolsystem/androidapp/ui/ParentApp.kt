@@ -14,6 +14,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -26,10 +31,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -39,11 +48,13 @@ import com.schoolsystem.androidapp.auth.AuthViewModel
 import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentSignupRequest
 import com.schoolsystem.androidapp.data.StudentProfileResponse
+import kotlinx.coroutines.launch
 
 private object AuthDestinations {
     const val Login = "login"
     const val Signup = "signup"
     const val Dashboard = "dashboard"
+    const val PurchaseForm = "purchase_form"
 }
 
 @Composable
@@ -78,16 +89,27 @@ fun ParentApp(authViewModel: AuthViewModel) {
             )
         }
         composable(AuthDestinations.Dashboard) {
-            DashboardScreen(
+            DashboardWithDrawer(
                 uiState = uiState,
                 onLookupChild = authViewModel::lookupChildByIndex,
                 onClearChild = authViewModel::clearChildProfile,
+                onRefreshChildren = authViewModel::fetchChildrenForParent,
                 onLogout = {
                     navController.navigate(AuthDestinations.Login) {
                         popUpTo(AuthDestinations.Dashboard) { inclusive = true }
                     }
                     authViewModel.logout()
-                }
+                },
+                onNavigateToPurchase = { navController.navigate(AuthDestinations.PurchaseForm) }
+            )
+        }
+        composable(AuthDestinations.PurchaseForm) {
+            PurchaseFormScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onInitiatePurchase = authViewModel::initiateFormPurchase,
+                onVerifyPayment = authViewModel::verifyPayment,
+                onClearPurchase = authViewModel::clearPurchaseFlow
             )
         }
     }
@@ -209,11 +231,17 @@ private fun DashboardScreen(
     uiState: AuthUiState,
     onLookupChild: (String) -> Unit,
     onClearChild: () -> Unit,
+    onOpenDrawer: () -> Unit,
+    onRefreshChildren: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showLookupDialog by remember { mutableStateOf(false) }
     var indexInput by remember { mutableStateOf("") }
+
+    LaunchedEffect(uiState.session?.parentId) {
+        onRefreshChildren()
+    }
 
     Card(
         modifier = modifier
@@ -223,10 +251,26 @@ private fun DashboardScreen(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(onClick = onOpenDrawer) { Text("Menu") }
             Text("Dashboard", style = MaterialTheme.typography.headlineSmall)
             uiState.session?.let {
                 Text("Logged in as: ${it.parentName}")
                 Text(it.parentEmail)
+            }
+            if (uiState.isChildrenLoading) {
+                Text("Loading children...", style = MaterialTheme.typography.bodySmall)
+            }
+            uiState.childrenError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            if (uiState.children.isNotEmpty()) {
+                Text("Children", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                uiState.children.forEach {
+                    ChildProfileCard(it)
+                }
+            }
+            OutlinedButton(onClick = onRefreshChildren, modifier = Modifier.fillMaxWidth()) {
+                Text("Refresh children")
             }
             uiState.childProfile?.let {
                 ChildProfileCard(it)
@@ -294,6 +338,136 @@ private fun ChildProfileCard(profile: StudentProfileResponse) {
             Text("Grade: ${profile.grade}")
             Text("Status: ${profile.status}")
             Text("Enrolled: ${profile.enrollmentDate}")
+        }
+    }
+}
+
+@Composable
+private fun DashboardWithDrawer(
+    uiState: AuthUiState,
+    onLookupChild: (String) -> Unit,
+    onClearChild: () -> Unit,
+    onRefreshChildren: () -> Unit,
+    onLogout: () -> Unit,
+    onNavigateToPurchase: () -> Unit
+) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                NavigationDrawerItem(
+                    label = { Text("Dashboard") },
+                    selected = true,
+                    onClick = { scope.launch { drawerState.close() } }
+                )
+                NavigationDrawerItem(
+                    label = { Text("Purchase Form") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToPurchase()
+                    }
+                )
+                NavigationDrawerItem(
+                    label = { Text("Log out") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onLogout()
+                    }
+                )
+            }
+        }
+    ) {
+        DashboardScreen(
+            uiState = uiState,
+            onLookupChild = onLookupChild,
+            onClearChild = onClearChild,
+            onOpenDrawer = { scope.launch { drawerState.open() } },
+            onRefreshChildren = onRefreshChildren,
+            onLogout = onLogout
+        )
+    }
+}
+
+@Composable
+private fun PurchaseFormScreen(
+    uiState: AuthUiState,
+    onBack: () -> Unit,
+    onInitiatePurchase: (String, String, String?) -> Unit,
+    onVerifyPayment: (String) -> Unit,
+    onClearPurchase: () -> Unit
+) {
+    val context = LocalContext.current
+    var childIndex by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(uiState.session?.parentEmail ?: "") }
+    var phone by remember { mutableStateOf("") }
+
+    LaunchedEffect(uiState.purchaseAuthUrl) {
+        val url = uiState.purchaseAuthUrl
+        if (url != null) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            context.startActivity(intent)
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .padding(24.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Purchase Admission Form", style = MaterialTheme.typography.headlineSmall)
+            Text("Price: GHS 1.00 per form")
+            OutlinedTextField(
+                value = childIndex,
+                onValueChange = { childIndex = it },
+                singleLine = true,
+                label = { Text("Child Index (optional)") }
+            )
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                singleLine = true,
+                label = { Text("Email") }
+            )
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                singleLine = true,
+                label = { Text("Phone") }
+            )
+            if (uiState.isPurchaseLoading) {
+                Text("Starting payment...", style = MaterialTheme.typography.bodySmall)
+            }
+            uiState.purchaseError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            Button(
+                onClick = {
+                    onClearPurchase()
+                    val idx = childIndex.trim().ifBlank { null }
+                    onInitiatePurchase(email.trim(), phone.trim(), idx)
+                },
+                enabled = email.isNotBlank() && phone.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Proceed to payment")
+            }
+            if (uiState.purchaseReference != null) {
+                if (uiState.isVerifyLoading) {
+                    Text("Verifying payment...", style = MaterialTheme.typography.bodySmall)
+                }
+                uiState.verifyError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                uiState.verifyStatus?.let { Text("Payment status: $it") }
+                OutlinedButton(onClick = { onVerifyPayment(uiState.purchaseReference) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Verify payment")
+                }
+            }
+            TextButton(onClick = onBack) { Text("Back") }
         }
     }
 }
