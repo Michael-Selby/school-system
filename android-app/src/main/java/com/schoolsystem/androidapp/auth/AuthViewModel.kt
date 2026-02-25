@@ -7,6 +7,8 @@ import com.schoolsystem.androidapp.data.ParentLoginRequest
 import com.schoolsystem.androidapp.data.ParentLoginResponse
 import com.schoolsystem.androidapp.data.ParentSignupRequest
 import com.schoolsystem.androidapp.data.StudentProfileResponse
+import com.schoolsystem.androidapp.data.PaymentInitResponse
+import com.schoolsystem.androidapp.data.PaymentVerifyResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
@@ -84,8 +86,37 @@ class AuthViewModel : ViewModel() {
                 session = null,
                 loginResult = null,
                 childProfile = null,
-                childLookupError = null
+                childLookupError = null,
+                isChildrenLoading = false,
+                children = emptyList(),
+                childrenError = null,
+                isPurchaseLoading = false,
+                purchaseError = null,
+                purchaseAuthUrl = null,
+                purchaseReference = null,
+                isVerifyLoading = false,
+                verifyError = null,
+                verifyStatus = null
             )
+        }
+    }
+
+    fun fetchChildrenForParent() {
+        val currentSession = _uiState.value.session
+        if (currentSession == null) {
+            _uiState.update { it.copy(childrenError = "You must be logged in to view children") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isChildrenLoading = true, childrenError = null) }
+            try {
+                val response: List<StudentProfileResponse> = client.get("$backendBaseUrl/api/parents/students") {
+                    parameter("email", currentSession.parentEmail)
+                }.body()
+                _uiState.update { it.copy(isChildrenLoading = false, children = response) }
+            } catch (cause: Exception) {
+                _uiState.update { it.copy(isChildrenLoading = false, childrenError = cause.message ?: "Unable to load children") }
+            }
         }
     }
 
@@ -118,6 +149,39 @@ class AuthViewModel : ViewModel() {
         _uiState.update { it.copy(childProfile = null, childLookupError = null) }
     }
 
+    fun initiateFormPurchase(email: String, phone: String, childIndex: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPurchaseLoading = true, purchaseError = null, purchaseAuthUrl = null, purchaseReference = null) }
+            try {
+                val resp: PaymentInitResponse = client.post("$backendBaseUrl/api/payments/forms/initiate") {
+                    contentType(ContentType.Application.Json)
+                    setBody(mapOf("email" to email, "phone" to phone, "childIndex" to childIndex))
+                }.body()
+                _uiState.update { it.copy(isPurchaseLoading = false, purchaseAuthUrl = resp.authorizationUrl, purchaseReference = resp.reference) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isPurchaseLoading = false, purchaseError = e.message ?: "Failed to start payment") }
+            }
+        }
+    }
+
+    fun verifyPayment(reference: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isVerifyLoading = true, verifyError = null, verifyStatus = null) }
+            try {
+                val resp: PaymentVerifyResponse = client.get("$backendBaseUrl/api/payments/verify") {
+                    parameter("reference", reference)
+                }.body()
+                _uiState.update { it.copy(isVerifyLoading = false, verifyStatus = resp.status) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isVerifyLoading = false, verifyError = e.message ?: "Verification failed") }
+            }
+        }
+    }
+
+    fun clearPurchaseFlow() {
+        _uiState.update { it.copy(purchaseAuthUrl = null, purchaseError = null, purchaseReference = null, verifyStatus = null, verifyError = null) }
+    }
+
     override fun onCleared() {
         client.close()
         super.onCleared()
@@ -130,7 +194,17 @@ data class AuthUiState(
     val loginResult: ParentLoginResponse? = null,
     val signupSuccess: Boolean = false,
     val session: ParentLoginResponse? = null,
+    val isChildrenLoading: Boolean = false,
+    val children: List<StudentProfileResponse> = emptyList(),
+    val childrenError: String? = null,
     val isChildLookupLoading: Boolean = false,
     val childProfile: StudentProfileResponse? = null,
-    val childLookupError: String? = null
+    val childLookupError: String? = null,
+    val isPurchaseLoading: Boolean = false,
+    val purchaseError: String? = null,
+    val purchaseAuthUrl: String? = null,
+    val purchaseReference: String? = null,
+    val isVerifyLoading: Boolean = false,
+    val verifyError: String? = null,
+    val verifyStatus: String? = null
 )
