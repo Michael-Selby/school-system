@@ -28,3 +28,15 @@ data class StudentProfileResponse(
     val status: String,
     val enrollmentDate: String
 )
+
+@Serializable
+data class PaymentInitResponse(
+    val authorizationUrl: String,
+    val reference: String
+)
+
+@Serializable
+data class PaymentVerifyResponse(
+    val success: Boolean,
+    val status: String
+)
